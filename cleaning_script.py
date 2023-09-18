@@ -26,7 +26,7 @@ def isolateTargetCoordsTruth(csvfile, targetname):
         xyz = [p[2:] for p in xyz]
         xyz = [plain_text_coords.split()[p] for p in [1, 2, 3]]
         xyz = [p[2:] for p in xyz]  # drop the axis
-        coordinateDictionary['data'].append({'timestamp' : timestamp, 'coordinates' : {'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}}) # list of timestamps, each with dict of coords
+        coordinateDictionary['data'].append({'timestamp' : timestamp, 'timestep' : index, 'coordinates' : {'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}}) # list of timestamps, each with dict of coords
     return coordinateDictionary
 
 def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
@@ -37,7 +37,7 @@ def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
     coordandcovdict['data'] = list()
     items = df_copy.items()
     for index, item in enumerate(list(df_copy[".TMu"].items())):
-        if df_copy[".Agent"] == agentname:
+        if list(df_copy[".Agent"].items())[index][1] == agentname:
             timestamp = list(df_copy["time"].items())[index][1]
             timestep = list(df_copy[".TimeStep"].items())[index][1]
             TMu = item[1].strip("()").replace(" ","").split(",")
@@ -58,21 +58,18 @@ def createErrorGraph(truthdict, resultsdict):
     The gazebo file might have a longer run time, so we need to use only the data that is also present in the truth.
     """
     
-def standardiseData():
+def standardiseData(startingposition, numofsteps):
     pass
+    
 
 def main():
     # testing
-    # gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
-    print("hello")
-    # print(gazebo_truth)
-    resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
-    pprint.pprint(resultsX1)
-    resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
+    gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
+    print(gazebo_truth['data'][0])
+    # resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
+    # pprint.pprint(resultsX1)
+    # resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
     print('\n**************\n')
     pprint.pprint(resultsX2)
-    main(sys.argv[1:])
     
-if "__name__" == "__main__":
-    print("this is running?")
-    main()
+main()
