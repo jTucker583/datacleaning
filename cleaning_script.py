@@ -57,19 +57,57 @@ def createErrorGraph(truthdict, resultsdict):
     To standardise data, make a timestep for each bit. What is the timestep for the results? What is the timestep for the gazebo?
     The gazebo file might have a longer run time, so we need to use only the data that is also present in the truth.
     """
-    
-def standardiseData(startingposition, numofsteps):
     pass
+
+def findAverageTimestep(dictfile):
+    # All of the data is collected within a minute, so we can safely subtract without converting
+    oddstep = []
+    evenstep = []
+    minitecorrection = 0
+    startingminute = float(dictfile['data'][0]['timestamp'][-12:-10])
+    sum = 0
+    for count, item in enumerate(reversed(dictfile['data'])):
+        minutecorrection = float(item['timestamp'][-12:-10]) - startingminute
+        if count % 2 == 0: oddstep.append(float(item['timestamp'][-9:]) + (minutecorrection*60))
+        else: evenstep.append(float(item['timestamp'][-9:]) + (minutecorrection*60))
+    for count, item in enumerate(oddstep):
+        try:
+            sum += (item - evenstep[count])
+        except:
+            continue
+    
+    return sum / (len(oddstep))
+    
+def standardiseData(truthdict, resultsdict, startingtime):
+    """
+    Timesteps in truth file are about 
+    """
+    newdict = dict()
+    newdict['target'] = truthdict['target']
+    newdict['data'] = list()
+    counter = 0
+    startingindex = 0
+    for index, item in enumerate(truthdict['data']):
+        if item.get('timestamp') == startingtime:
+            startingindexindex = index
+            break 
+    timestep = round(findAverageTimestep(resultsdict) / findAverageTimestep(truthdict))
+    while (counter < len(resultsdict['data'])):
+        try:
+            newdict['data'].append(truthdict['data'][timestep * counter + startingindex])
+            counter = counter + 1
+        except:
+            break
+    return newdict
     
 
 def main():
     # testing
     gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
-    print(gazebo_truth['data'][0])
-    # resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
-    # pprint.pprint(resultsX1)
-    # resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
-    print('\n**************\n')
-    pprint.pprint(resultsX2)
+    resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
+    resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
+    gazebo_standard = standardiseData(gazebo_truth, resultsX1,'1969/12/31/17:06:35.445000')
+    pprint.pprint(gazebo_standard)
+    pprint.pprint(resultsX1)
     
 main()
