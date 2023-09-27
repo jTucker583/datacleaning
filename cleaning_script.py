@@ -2,6 +2,8 @@ import sys, getopt
 import pandas as pd
 import re
 import pprint
+import matplotlib.pyplot as plt
+import numpy as np
 
 # usage: python3 cleaning_script.py 
 # resultsFile:=[filepath] target:=[rtarget] agents:=[[agentlist]] 
@@ -26,7 +28,7 @@ def isolateTargetCoordsTruth(csvfile, targetname):
         xyz = [p[2:] for p in xyz]
         xyz = [plain_text_coords.split()[p] for p in [1, 2, 3]]
         xyz = [p[2:] for p in xyz]  # drop the axis
-        coordinateDictionary['data'].append({'timestamp' : timestamp, 'timestep' : index, 'coordinates' : {'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}}) # list of timestamps, each with dict of coords
+        coordinateDictionary['data'].append({'timestamp' : timestamp, 'timestep' : index, 'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}) # list of timestamps, each with dict of coords
     return coordinateDictionary
 
 def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
@@ -47,7 +49,7 @@ def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
                                             'varX' : TCov[0], 'varY' : TCov[5], 'varVx' : TCov[10], 'varVy' : TCov[15]})
     return coordandcovdict
 
-def createErrorGraph(truthdict, resultsdict):
+def createErrorGraph(truthdict, resultsdict, datapoint):
     """
     *Calculate xy standard deviation (two variables), and plot it as a horizontal line
     *Plot the square root of the covarience
@@ -57,7 +59,38 @@ def createErrorGraph(truthdict, resultsdict):
     To standardise data, make a timestep for each bit. What is the timestep for the results? What is the timestep for the gazebo?
     The gazebo file might have a longer run time, so we need to use only the data that is also present in the truth.
     """
-    pass
+    x = list()
+    yTruth = list()
+    yErr = list()
+    yCov = list()
+    yStandardDev = list()
+    yNegSDev = list()
+    for count, item in enumerate(list(resultsdict['data'])):
+        print(count, item['varY'])
+    for item in list(truthdict['data']):
+        yTruth.append(float(item[datapoint]))
+    for count, item in enumerate(list(resultsdict['data'])):
+        x.append(int(item['timestep']))
+        yErr.append((yTruth[count] - float(item[datapoint])))
+        yCov.append(float(item['var'+datapoint]))
+    yStandardDev = [(np.sqrt(y) * 2) for y in yCov]
+    yNegSDev = [-y for y in yStandardDev]
+    # Create a Matplotlib figure and axis
+    plt.figure(figsize=(8, 6))
+    plt.title('Error and covarience for ' + str(datapoint) + ' with agent ' + resultsdict['agent'])
+    plt.xlabel('timestep')
+    plt.ylabel('positioning error')
+    plt.plot(x, yErr, label='Error', color='red')
+    plt.plot(x, yCov, label='Covarience', color='blue')
+    plt.plot(x, yStandardDev, label='Standard Deviation', color='green')
+    plt.plot(x, yNegSDev, label='Standard Deviation', color='green')
+    plt.ylim(-50, 50)
+
+    # Add a legend to distinguish the lines
+    plt.legend()
+    plt.savefig(datapoint+"_err.jpg")
+    plt.savefig("output1", facecolor='y', bbox_inches="tight", transparent=False)
+    print('\%\%\%\%\%\%\%\% ',yCov,' %\%\%\%\%\%\%\%')
 
 def findAverageTimestep(dictfile):
     # All of the data is collected within a minute, so we can safely subtract without converting
@@ -104,10 +137,15 @@ def standardiseData(truthdict, resultsdict, startingtime):
 def main():
     # testing
     gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
+    print('******',gazebo_truth['data'][0].keys(),'******')
     resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
     resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
+    print('******',resultsX1['data'][0].keys(),'******')
     gazebo_standard = standardiseData(gazebo_truth, resultsX1,'1969/12/31/17:06:35.445000')
-    pprint.pprint(gazebo_standard)
-    pprint.pprint(resultsX1)
+    
+    createErrorGraph(gazebo_standard, resultsX1, 'x')
+    createErrorGraph(gazebo_standard, resultsX1, 'y')
+    # pprint.pprint(gazebo_standard)
+    # pprint.pprint(resultsX1)
     
 main()
