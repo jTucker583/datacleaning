@@ -65,15 +65,14 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
     yCov = list()
     yStandardDev = list()
     yNegSDev = list()
-    for count, item in enumerate(list(resultsdict['data'])):
-        print(count, item['varY'])
     for item in list(truthdict['data']):
         yTruth.append(float(item[datapoint]))
+        print('truthval',float(item[datapoint]))
     for count, item in enumerate(list(resultsdict['data'])):
         x.append(int(item['timestep']))
-        yErr.append((yTruth[count] - float(item[datapoint])))
-        yCov.append(float(item['var'+datapoint]))
-    yStandardDev = [(np.sqrt(y) * 2) for y in yCov]
+        yErr.append((yTruth[count] - float(item[datapoint]))) # error = pos in gazebo - pos in results
+        yCov.append(float(item['var'+datapoint.upper()]))
+    yStandardDev = [(np.sqrt(np.abs(y))) for y in yCov] # standard deviation is sqrt of covariance
     yNegSDev = [-y for y in yStandardDev]
     # Create a Matplotlib figure and axis
     plt.figure(figsize=(8, 6))
@@ -84,11 +83,11 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
     plt.plot(x, yCov, label='Covarience', color='blue')
     plt.plot(x, yStandardDev, label='Standard Deviation', color='green')
     plt.plot(x, yNegSDev, label='Standard Deviation', color='green')
-    plt.ylim(-50, 50)
+    plt.ylim(-40, 40)
 
     # Add a legend to distinguish the lines
     plt.legend()
-    plt.savefig(datapoint+"_err.jpg")
+    plt.savefig(resultsdict['agent']+datapoint+"_err.jpg")
     plt.savefig("output1", facecolor='y', bbox_inches="tight", transparent=False)
     print('\%\%\%\%\%\%\%\% ',yCov,' %\%\%\%\%\%\%\%')
 
@@ -137,14 +136,15 @@ def standardiseData(truthdict, resultsdict, startingtime):
 def main():
     # testing
     gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
-    print('******',gazebo_truth['data'][0].keys(),'******')
     resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
     resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
-    print('******',resultsX1['data'][0].keys(),'******')
+    
     gazebo_standard = standardiseData(gazebo_truth, resultsX1,'1969/12/31/17:06:35.445000')
     
     createErrorGraph(gazebo_standard, resultsX1, 'x')
     createErrorGraph(gazebo_standard, resultsX1, 'y')
+    createErrorGraph(gazebo_standard, resultsX2, 'x')
+    createErrorGraph(gazebo_standard, resultsX2, 'y')
     # pprint.pprint(gazebo_standard)
     # pprint.pprint(resultsX1)
     
