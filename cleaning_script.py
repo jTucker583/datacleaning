@@ -88,7 +88,6 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
     # Add a legend to distinguish the lines
     plt.legend()
     plt.savefig(resultsdict['agent']+datapoint+"_err.jpg")
-    plt.savefig("output1", facecolor='y', bbox_inches="tight", transparent=False)
     print('\%\%\%\%\%\%\%\% ',yCov,' %\%\%\%\%\%\%\%')
 
 def findAverageTimestep(dictfile):
