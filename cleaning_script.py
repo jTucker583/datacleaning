@@ -23,7 +23,6 @@ def isolateTargetCoordsTruth(csvfile, targetname):
     for index, item in enumerate(list(df_copy[".pose"].items())):
         plain_text_coords = item[1].split(",")[target_index].replace(" ","") # get just positioning data for target, format as well
         timestamp = list(df_copy["time"].items())[index][1]
-        first_timestamp = timestamp[0]
         xyz = re.findall(r"[xyz]:[-+]?(?:\d*\.*\d+)", plain_text_coords)  # regex the text
         xyz = [p[2:] for p in xyz]
         xyz = [plain_text_coords.split()[p] for p in [1, 2, 3]]
@@ -72,7 +71,7 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
         x.append(int(item['timestep']))
         yErr.append((yTruth[count] - float(item[datapoint]))) # error = pos in gazebo - pos in results
         yCov.append(float(item['var'+datapoint.upper()]))
-    yStandardDev = [(np.sqrt(np.abs(y))) for y in yCov] # standard deviation is sqrt of covariance
+    yStandardDev = [(np.sqrt(np.abs(y)) * 2) for y in yCov] # standard deviation is sqrt of covariance
     yNegSDev = [-y for y in yStandardDev]
     # Create a Matplotlib figure and axis
     plt.figure(figsize=(8, 6))
@@ -80,9 +79,9 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
     plt.xlabel('timestep')
     plt.ylabel('positioning error')
     plt.plot(x, yErr, label='Error', color='red')
-    plt.plot(x, yCov, label='Covarience', color='blue')
-    plt.plot(x, yStandardDev, label='Standard Deviation', color='green')
-    plt.plot(x, yNegSDev, label='Standard Deviation', color='green')
+    # plt.plot(x, yCov, label='Covarience', color='blue')
+    plt.plot(x, yStandardDev, label='2$\sigma$', color='green')
+    plt.plot(x, yNegSDev, color='green')
     plt.ylim(-40, 40)
 
     # Add a legend to distinguish the lines
@@ -120,7 +119,7 @@ def standardiseData(truthdict, resultsdict, startingtime):
     startingindex = 0
     for index, item in enumerate(truthdict['data']):
         if item.get('timestamp') == startingtime:
-            startingindexindex = index
+            startingindex = index
             break 
     timestep = round(findAverageTimestep(resultsdict) / findAverageTimestep(truthdict))
     while (counter < len(resultsdict['data'])):
