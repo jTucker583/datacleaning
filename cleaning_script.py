@@ -1,4 +1,5 @@
-import sys, getopt
+import sys
+import os
 import pandas as pd
 import re
 import pprint
@@ -90,7 +91,7 @@ def createErrorGraph(truthdict, resultsdict, datapoint, datasubscriber, dataspec
     plt.title('Error and standard deviation for ' + str(dataspecifier) + ' ' + str(datapoint) + ' with agent ' +
               resultsdict['agent'] + ' and target ' + truthdict['target'])
     plt.xlabel('timestep')
-    plt.ylabel('positioning error')
+    plt.ylabel(dataspecifier + ' error')
     
     plt.plot(x, yErr, label='Error', color='red')
     plt.plot(x, yStandardDev, label='2$\sigma$', color='green')
@@ -101,7 +102,7 @@ def createErrorGraph(truthdict, resultsdict, datapoint, datasubscriber, dataspec
 
     # Add a legend to distinguish the lines
     plt.legend()
-    plt.savefig(resultsdict['agent']+datapoint+"_err.jpg")
+    plt.savefig(resultsdict['agent']+datapoint+"_err.jpg", dpi=500)
 
 def findAverageTimestep(dictfile):
     # All of the data is collected within a minute, so we can safely subtract without converting
@@ -145,18 +146,33 @@ def standardiseData(truthdict, resultsdict, startingtime):
     return newdict
     
 
-def main():
+def main(args):
     # testing
-    gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
-    resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1', 2)
-    resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2', 2)
+    if(len(args) != 9):
+        print("Missing one of the required arguments:\n" + """
     
-    gazebo_standard = standardiseData(gazebo_truth, resultsX1,'1969/12/31/17:06:35.445000')
-    createErrorGraph(gazebo_standard, resultsX1, 'x', '.pose', 'position')
-    createErrorGraph(gazebo_standard, resultsX1, 'y', '.pose', 'position')
-    createErrorGraph(gazebo_standard, resultsX2, 'x', '.pose', 'position')
-    createErrorGraph(gazebo_standard, resultsX2, 'y', '.pose', 'position')
-    # pprint.pprint(gazebo_standard)
-    # pprint.pprint(resultsX1)
+        args[1] "2023-08-16-12-58-55-gazebo-model_states.csv" - truth file
+        args[2] "tycho_bot_1" - truth target
+        args[3] "2023-08-29-10-20-22-results.csv" - results file
+        args[4] "X1" - agent
+        args[5] "1969/12/31/17:06:35.445000" - starting time
+        args[6] "position" - datacategory
+        args[7] ".pose" - subscriber
+        args[8] "x" - datapoint
+        
+        I.E:
+        "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "1969/12/31/17:06:35.445000" "position" ".pose" "x"
+        """)
+        return -1
     
-main()
+    print("Reading Gazebo simulation file...")
+    gazebo_truth = isolateTargetCoordsTruth(args[1],args[2])
+    print("Reading results file...")
+    resultsX = isolateTargetCoordsAndCovarienceTest(args[3], args[4], 2)
+    print("Creating graphs...")
+    gazebo_standard = standardiseData(gazebo_truth, resultsX, args[5])
+    createErrorGraph(gazebo_standard, resultsX, args[8], args[7], args[6])
+    print("Graph saved to",os.getcwd())
+    return 1
+
+main(sys.argv)
