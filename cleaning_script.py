@@ -19,18 +19,31 @@ def isolateTargetCoordsTruth(csvfile, targetname):
     coordinateDictionary['target'] = targetname
     coordinateDictionary['data'] = list()
     target_index = df_copy[".name"][0].strip("[]").replace("'","").split(", ").index(targetname) # so we can find right target data in position list
+    posedict = dict()
+    twistdict = dict()
+    
+    for item in list(df_copy[".twist"].items()):
+        plain_text_coords = item[1].split(",")[target_index].replace(" ","") # get just positioning data for target, format as well
+        # print(re.findall(r"[xyzw]:[-+]?(?:\d*\.*\d+)", plain_text_coords))
+        xyz = re.findall(r"[xyz]:[-+]?(?:\d*\.*\d+)", plain_text_coords)  # regex the text
+        xyz = [p[2:] for p in xyz]
+        xyz = [plain_text_coords.split()[p] for p in [1, 2, 3, 5, 6, 7]]
+        xyz = [p[2:] for p in xyz]  # drop the axis
+        twistdict = {'linear' : {'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}, 'angular' : {'x': xyz[3], 'y': xyz[4], 'z' : xyz[5]}}
     
     for index, item in enumerate(list(df_copy[".pose"].items())):
         plain_text_coords = item[1].split(",")[target_index].replace(" ","") # get just positioning data for target, format as well
         timestamp = list(df_copy["time"].items())[index][1]
-        xyz = re.findall(r"[xyz]:[-+]?(?:\d*\.*\d+)", plain_text_coords)  # regex the text
+        # print(re.findall(r"[xyzw]:[-+]?(?:\d*\.*\d+)", plain_text_coords))
+        xyz = re.findall(r"[xyzw]:[-+]?(?:\d*\.*\d+)", plain_text_coords)  # regex the text
         xyz = [p[2:] for p in xyz]
-        xyz = [plain_text_coords.split()[p] for p in [1, 2, 3]]
+        xyz = [plain_text_coords.split()[p] for p in [1, 2, 3, 5, 6, 7, 8]]
         xyz = [p[2:] for p in xyz]  # drop the axis
-        coordinateDictionary['data'].append({'timestamp' : timestamp, 'timestep' : index, 'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}) # list of timestamps, each with dict of coords
+        posedict = {'position' : {'x': xyz[0], 'y': xyz[1], 'z' : xyz[2]}, 'orientation' : {'x': xyz[3], 'y': xyz[4], 'z' : xyz[5], 'w' : xyz[6]}}
+        coordinateDictionary['data'].append({'timestamp' : timestamp, 'timestep' : index, '.pose' : posedict, '.twist' : twistdict}) # list of timestamps, each with dict of coords
     return coordinateDictionary
 
-def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
+def isolateTargetCoordsAndCovarienceTest(csvfile, agentname, begindatarow):
     file_df = pd.read_csv(csvfile)
     df_copy = file_df.copy() # so we don't mess with the original data
     coordandcovdict = dict()
@@ -40,7 +53,7 @@ def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
     for index, item in enumerate(list(df_copy[".TMu"].items())):
         if list(df_copy[".Agent"].items())[index][1] == agentname:
             timestamp = list(df_copy["time"].items())[index][1]
-            timestep = list(df_copy[".TimeStep"].items())[index][1]
+            timestep = float(list(df_copy[".TimeStep"].items())[index][1]) - begindatarow
             TMu = item[1].strip("()").replace(" ","").split(",")
             TCov = list(df_copy[".TCov"].items())[index][1].strip("()").replace(" ","").split(",")
             coordandcovdict['data'].append({'timestamp' : timestamp, 'timestep' : timestep ,
@@ -48,7 +61,7 @@ def isolateTargetCoordsAndCovarienceTest(csvfile, agentname):
                                             'varX' : TCov[0], 'varY' : TCov[5], 'varVx' : TCov[10], 'varVy' : TCov[15]})
     return coordandcovdict
 
-def createErrorGraph(truthdict, resultsdict, datapoint):
+def createErrorGraph(truthdict, resultsdict, datapoint, datasubscriber, dataspecifier):
     """
     *Calculate xy standard deviation (two variables), and plot it as a horizontal line
     *Plot the square root of the covarience
@@ -65,8 +78,7 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
     yStandardDev = list()
     yNegSDev = list()
     for item in list(truthdict['data']):
-        yTruth.append(float(item[datapoint]))
-        print('truthval',float(item[datapoint]))
+        yTruth.append(float(item[datasubscriber][dataspecifier][datapoint]))
     for count, item in enumerate(list(resultsdict['data'])):
         x.append(int(item['timestep']))
         yErr.append((yTruth[count] - float(item[datapoint]))) # error = pos in gazebo - pos in results
@@ -75,19 +87,21 @@ def createErrorGraph(truthdict, resultsdict, datapoint):
     yNegSDev = [-y for y in yStandardDev]
     # Create a Matplotlib figure and axis
     plt.figure(figsize=(8, 6))
-    plt.title('Error and covarience for ' + str(datapoint) + ' with agent ' + resultsdict['agent'])
+    plt.title('Error and standard deviation for ' + str(dataspecifier) + ' ' + str(datapoint) + ' with agent ' +
+              resultsdict['agent'] + ' and target ' + truthdict['target'])
     plt.xlabel('timestep')
     plt.ylabel('positioning error')
+    
     plt.plot(x, yErr, label='Error', color='red')
-    # plt.plot(x, yCov, label='Covarience', color='blue')
     plt.plot(x, yStandardDev, label='2$\sigma$', color='green')
     plt.plot(x, yNegSDev, color='green')
+    plt.axhline(y = 0, linestyle = 'dashed')
+    plt.fill_between(x, yStandardDev, yNegSDev, alpha=.2, linewidth=0, color='green')
     plt.ylim(-40, 40)
 
     # Add a legend to distinguish the lines
     plt.legend()
     plt.savefig(resultsdict['agent']+datapoint+"_err.jpg")
-    print('\%\%\%\%\%\%\%\% ',yCov,' %\%\%\%\%\%\%\%')
 
 def findAverageTimestep(dictfile):
     # All of the data is collected within a minute, so we can safely subtract without converting
@@ -134,15 +148,14 @@ def standardiseData(truthdict, resultsdict, startingtime):
 def main():
     # testing
     gazebo_truth = isolateTargetCoordsTruth("2023-08-16-12-58-55-gazebo-model_states.csv","tycho_bot_1")
-    resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1')
-    resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2')
+    resultsX1 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X1', 2)
+    resultsX2 = isolateTargetCoordsAndCovarienceTest("2023-08-29-10-20-22-results.csv", 'X2', 2)
     
     gazebo_standard = standardiseData(gazebo_truth, resultsX1,'1969/12/31/17:06:35.445000')
-    
-    createErrorGraph(gazebo_standard, resultsX1, 'x')
-    createErrorGraph(gazebo_standard, resultsX1, 'y')
-    createErrorGraph(gazebo_standard, resultsX2, 'x')
-    createErrorGraph(gazebo_standard, resultsX2, 'y')
+    createErrorGraph(gazebo_standard, resultsX1, 'x', '.pose', 'position')
+    createErrorGraph(gazebo_standard, resultsX1, 'y', '.pose', 'position')
+    createErrorGraph(gazebo_standard, resultsX2, 'x', '.pose', 'position')
+    createErrorGraph(gazebo_standard, resultsX2, 'y', '.pose', 'position')
     # pprint.pprint(gazebo_standard)
     # pprint.pprint(resultsX1)
     
