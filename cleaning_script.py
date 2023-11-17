@@ -110,6 +110,7 @@ def findAverageTimestep(dictfile):
     evenstep = []
     minitecorrection = 0
     startingminute = float(dictfile['data'][0]['timestamp'][-12:-10])
+    
     sum = 0
     for count, item in enumerate(reversed(dictfile['data'])):
         minutecorrection = float(item['timestamp'][-12:-10]) - startingminute
@@ -123,9 +124,13 @@ def findAverageTimestep(dictfile):
     
     return sum / (len(oddstep))
     
-def standardiseData(truthdict, resultsdict, startingtime):
+def standardiseData(truthdict, resultsdict):
     """
-    Timesteps in truth file are about 
+    startingtime represents the starting time to match data in the gazebo file - starting time of gazebo truth to match with results
+    Algo: 
+        1. get the first row of data from the results
+        2. Find the average timestep for the gazebo and the results
+        3. Parse gazebo data into a new dict starting from that index up until the last index of the results file
     """
     newdict = dict()
     newdict['target'] = truthdict['target']
@@ -133,7 +138,7 @@ def standardiseData(truthdict, resultsdict, startingtime):
     counter = 0
     startingindex = 0
     for index, item in enumerate(truthdict['data']):
-        if item.get('timestamp') == startingtime:
+        if item.get('timestamp') == resultsdict['data'][0]['timestamp']: # want the first index of data from the results
             startingindex = index
             break 
     timestep = round(findAverageTimestep(resultsdict) / findAverageTimestep(truthdict))
@@ -148,31 +153,33 @@ def standardiseData(truthdict, resultsdict, startingtime):
 
 def main(args):
     # testing
-    if(len(args) != 9):
+    if(len(args) != 8):
         print("Missing one of the required arguments:\n" + """
     
         args[1] "2023-08-16-12-58-55-gazebo-model_states.csv" - truth file
         args[2] "tycho_bot_1" - truth target
         args[3] "2023-08-29-10-20-22-results.csv" - results file
         args[4] "X1" - agent
-        args[5] "1969/12/31/17:06:35.445000" - starting time
-        args[6] "position" - datacategory
-        args[7] ".pose" - subscriber
-        args[8] "x" - datapoint
+        args[5] "position" - datacategory
+        args[6] ".pose" - subscriber
+        args[7] "x,y" - datapoints
         
         I.E:
-        "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "1969/12/31/17:06:35.445000" "position" ".pose" "x"
+        "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "position" ".pose" "x,y"
         """)
         return -1
     
+    datapoints = args[7].split(',')
+    print('Creating Error graphs for datapoints',datapoints)
     print("Reading Gazebo simulation file...")
     gazebo_truth = isolateTargetCoordsTruth(args[1],args[2])
     print("Reading results file...")
-    resultsX = isolateTargetCoordsAndCovarienceTest(args[3], args[4], 2)
+    results = isolateTargetCoordsAndCovarienceTest(args[3], args[4], 2)
     print("Creating graphs...")
-    gazebo_standard = standardiseData(gazebo_truth, resultsX, args[5])
-    createErrorGraph(gazebo_standard, resultsX, args[8], args[7], args[6])
-    print("Graph saved to",os.getcwd())
+    gazebo_standard = standardiseData(gazebo_truth, results)
+    for datapoint in datapoints:
+        createErrorGraph(gazebo_standard, results, datapoint, args[6], args[5])
+    print("Graphs saved to",os.getcwd())
     return 1
 
 main(sys.argv)
