@@ -6,6 +6,7 @@ import pprint
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 # usage: python3 cleaning_script.py 
 # resultsFile:=[filepath] target:=[rtarget] agents:=[[agentlist]] 
 # truthFile:=[filepath] target:=[ttarget] agents:=[[agentlist]]
@@ -167,7 +168,24 @@ def main(args):
         I.E:
         "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "position" ".pose" "x,y"
         """)
-        return -1
+        print("Missing one of the required arguments:\n") 
+        dateAndTime = "2023-11-28-12-50-40"        
+        args = dict()
+        args[1] = dateAndTime + "-gazebo-model_states.csv"  #truth file
+        args[2] = "tycho_bot_1" #truth target
+        args[3] = dateAndTime + "-results.csv" #- results file
+        args[4] = "X2" #- agent
+        # args[5] = "1969/12/31/17:4:4.896000" #- starting time
+        args[5] = "position" #- datacategory
+        args[6] = ".pose" #- subscriber
+        args[7] = "x,y" #- datapoint
+        
+        """I.E:
+        "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "1969/12/31/17:06:35.445000" "position" ".pose" "x"
+        """
+        # return -1
+    
+        # return -1
     
     datapoints = args[7].split(',')
     print('Creating Error graphs for datapoints',datapoints)
