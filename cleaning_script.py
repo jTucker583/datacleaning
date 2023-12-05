@@ -5,7 +5,7 @@ import re
 import pprint
 import matplotlib.pyplot as plt
 import numpy as np
-
+import json
 
 # usage: python3 cleaning_script.py 
 # resultsFile:=[filepath] target:=[rtarget] agents:=[[agentlist]] 
@@ -13,7 +13,7 @@ import numpy as np
 
 # requires installation of seaborn - use pip3 install seaborn
 
-def isolateTargetCoordsTruth(csvfile, targetname):
+def readInputDataGazebo(csvfile, targetname):
     file_df = pd.read_csv(csvfile)
     df_copy = file_df.copy() # so we don't mess with the original data
     
@@ -45,7 +45,7 @@ def isolateTargetCoordsTruth(csvfile, targetname):
         coordinateDictionary['data'].append({'timestamp' : timestamp, 'timestep' : index, '.pose' : posedict, '.twist' : twistdict}) # list of timestamps, each with dict of coords
     return coordinateDictionary
 
-def isolateTargetCoordsAndCovarienceTest(csvfile, agentname, begindatarow):
+def readInputDataTest(csvfile, agentname, begindatarow):
     file_df = pd.read_csv(csvfile)
     df_copy = file_df.copy() # so we don't mess with the original data
     coordandcovdict = dict()
@@ -169,7 +169,7 @@ def main(args):
         "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "position" ".pose" "x,y"
         """)
         print("Missing one of the required arguments:\n") 
-        dateAndTime = "2023-11-28-12-50-40"        
+        dateAndTime = "2023-08-16-12-58-55"       
         args = dict()
         args[1] = dateAndTime + "-gazebo-model_states.csv"  #truth file
         args[2] = "tycho_bot_1" #truth target
@@ -181,23 +181,48 @@ def main(args):
         args[7] = "x,y" #- datapoint
         
         """I.E:
-        "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "1969/12/31/17:06:35.445000" "position" ".pose" "x"
+        "2023-08-16-12-58-55-gazebo-model_states.csv" "tycho_bot_1" "2023-08-29-10-20-22-results.csv" "X1" "position" ".pose" "x"
         """
         # return -1
     
         # return -1
     
     datapoints = args[7].split(',')
+    gazebo_truth = None
+    results = None
+    
     print('Creating Error graphs for datapoints',datapoints)
-    print("Reading Gazebo simulation file...")
-    gazebo_truth = isolateTargetCoordsTruth(args[1],args[2])
-    print("Reading results file...")
-    results = isolateTargetCoordsAndCovarienceTest(args[3], args[4], 2)
+    
+    # read gazebo file
+    if (args[1][-4:] == ".csv"):
+        print("Reading Gazebo simulation file...")
+        gazebo_truth = readInputDataGazebo(args[1],args[2])
+        # save csv results to json
+        with open('gazebo_data.json', 'w') as file:
+            json.dump(gazebo_truth, file)
+        print('Data stored successfully!')
+    elif (args[1][-5:] == ".json"):
+        # read json file into dict format
+        with open('gazebo_data.json', 'r') as file:
+            gazebo_truth = json.load(file)
+        pass
+    else:
+        print("Input file format not supported: {argv[1]} must be of type json or CSV.")
+        return -1
+    
+    # read result file
+    if (args[3][-4:] != ".csv"):
+        print("Input file format not supported: {argv[3]} must be of type CSV.")
+    else:
+        print("Reading results file...")
+        results = readInputDataTest(args[3], args[4], 2)
+    
+    # create the graphs
     print("Creating graphs...")
     gazebo_standard = standardiseData(gazebo_truth, results)
     for datapoint in datapoints:
         createErrorGraph(gazebo_standard, results, datapoint, args[6], args[5])
     print("Graphs saved to",os.getcwd())
-    return 1
+    return 0
 
 main(sys.argv)
